@@ -157,3 +157,13 @@ class Map:
                         types_count += 1
                 raw_data[types_count_index] = types_count-1
         return base64.b64encode(raw_data).decode('utf-8')
+
+    def paste(self, x: int, y: int, src: Map|str):
+        if isinstance(src, str):
+            src = Map(src)
+        for chunk_x, chunk_y in src.chunks:
+            chunk = src.chunks[(chunk_x, chunk_y)]
+            for i, arrow in enumerate(chunk.arrows):
+                arrow_x = chunk_x * 16 + i % 16 + x
+                arrow_y = chunk_y * 16 + i // 16 + y
+                self.set(arrow_x, arrow_y, arrow)
