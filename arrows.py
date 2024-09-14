@@ -2,38 +2,38 @@ from enum import IntEnum
 import base64
 
 class Direction(IntEnum):
-    North = 0,
-    East  = 1,
-    South = 2,
+    North = 0
+    East  = 1
+    South = 2
     West  = 3
 
 class ArrowType(IntEnum):
-    Empty                  = 0,
-    Arrow                  = 1,
-    Source                 = 2,
-    Blocker                = 3,
-    Delay                  = 4,
-    Detector               = 5,
-    SplitterUpDown         = 6,
-    SplitterUpRight        = 7,
-    SplitterUpRightLeft    = 8,
-    Pulse                  = 9,
-    BlueArrow              = 10,
-    Diagonal               = 11,
-    BlueSplitterUpUp       = 12,
-    BlueSplitterRightUp    = 13,
-    BlueSplitterUpDiagonal = 14,
-    Not                    = 15,
-    And                    = 16,
-    Xor                    = 17,
-    Latch                  = 18,
-    Flipflop               = 19,
-    Random                 = 20,
-    Button                 = 21,
-    LevelSource            = 22,
-    LevelTarget            = 23,
-    DirectoinalButton      = 24,
-    Unknown                = 25,
+    Empty                  = 0
+    Arrow                  = 1
+    Source                 = 2
+    Blocker                = 3
+    Delay                  = 4
+    Detector               = 5
+    SplitterUpDown         = 6
+    SplitterUpRight        = 7
+    SplitterUpRightLeft    = 8
+    Pulse                  = 9
+    BlueArrow              = 10
+    Diagonal               = 11
+    BlueSplitterUpUp       = 12
+    BlueSplitterRightUp    = 13
+    BlueSplitterUpDiagonal = 14
+    Not                    = 15
+    And                    = 16
+    Xor                    = 17
+    Latch                  = 18
+    Flipflop               = 19
+    Random                 = 20
+    Button                 = 21
+    LevelSource            = 22
+    LevelTarget            = 23
+    DirectoinalButton      = 24
+    Unknown                = 25
 
 
 class Arrow:
@@ -49,7 +49,7 @@ class Arrow:
 class Chunk:
     arrows: list[Arrow]
     def __init__(self):
-        self.arrows = [Arrow()] * 256
+        self.arrows = ([Arrow()] * 256).copy()
 
     def get(self, x: int, y: int) -> Arrow:
         return self.arrows[y*16+x]
@@ -95,14 +95,13 @@ class Map:
             nonlocal raw_data
             val = raw_data[:2]
             raw_data = raw_data[2:]
-            return int.from_bytes(val, byteorder='little')
+            return int.from_bytes(val, byteorder='little', signed=True)
 
         self.version = pop16()
         chunks_count = pop16()
         for _ in range(chunks_count):
             chunk_x = pop16()
             chunk_y = pop16()
-            print(chunk_x, chunk_y)
             arrow_types = pop8()+1
             for _ in range(arrow_types):
                 type = pop8()
@@ -127,7 +126,7 @@ class Map:
             raw_data.extend(val.to_bytes(byteorder='little', length=1))
         def push16(val: int):
             nonlocal raw_data
-            raw_data.extend(val.to_bytes(byteorder='little', length=2))
+            raw_data.extend(val.to_bytes(byteorder='little', length=2, signed=True))
 
 
         push16(self.version)
@@ -157,13 +156,3 @@ class Map:
                         types_count += 1
                 raw_data[types_count_index] = types_count-1
         return base64.b64encode(raw_data).decode('utf-8')
-
-    def paste(self, x: int, y: int, src: Map|str):
-        if isinstance(src, str):
-            src = Map(src)
-        for chunk_x, chunk_y in src.chunks:
-            chunk = src.chunks[(chunk_x, chunk_y)]
-            for i, arrow in enumerate(chunk.arrows):
-                arrow_x = chunk_x * 16 + i % 16 + x
-                arrow_y = chunk_y * 16 + i // 16 + y
-                self.set(arrow_x, arrow_y, arrow)
