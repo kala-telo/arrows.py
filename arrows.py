@@ -73,7 +73,9 @@ class Chunk:
     arrows: list[Arrow]
 
     def __init__(self):
-        self.arrows = ([Arrow()] * 256).copy()
+        self.arrows = []
+        for _ in range(256):
+            self.arrows.append(Arrow())
 
     def get(self, x: int, y: int) -> Arrow:
         return self.arrows[y*16+x]
