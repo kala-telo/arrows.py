@@ -126,8 +126,8 @@ class Map:
             return int.from_bytes(val, byteorder='little', signed=True)
 
         self.version = pop16()
-        assert self.version in {0, 4}
-        if self.version == 4:
+        assert self.version in {0, 4, 5}
+        if self.version >= 4:
             compressed = pop8()
             if compressed:
                 raw_data = zlib.decompress(raw_data)
@@ -138,19 +138,26 @@ class Map:
             arrow_types = pop8()+1
             for _ in range(arrow_types):
                 type = pop8()
+                # if self.version >= 5:
+                #     type %= 64
                 type_count = pop8()+1
                 for _ in range(type_count):
                     position = pop8()
                     x = position & 0x0F
                     y = (position & 0xF0) >> 4
                     dnf = pop8()
+                    has_string = False
                     strbuf = bytearray()
                     if self.version == 4:
-                        if dnf & 1 != 0:
-                            cnt = pop16()
-                            for _ in range(cnt):
-                                strbuf.append(pop8())
+                        has_string = dnf & 1 != 0
                         dnf >>= 1
+                    elif self.version == 5:
+                        has_string = dnf & 0b1000
+                        dnf &= 0b0111
+                    if has_string:
+                        cnt = pop16()
+                        for _ in range(cnt):
+                            strbuf.append(pop8())
                     flipped = dnf & 0b0100 != 0
                     direction = dnf & 0b0011
                     arrow = Arrow()
@@ -191,6 +198,7 @@ class Map:
                         position = x | (y<<4)
                         rotation = (arrow.direction | (arrow.flipped << 2)) << (1 if self.version == 4 else 0)
                         if arrow.string != "":
+                            rotation |= 0b1000 * (self.version != 4)
                             if self.version < 4:
                                 raise ValueError("Attempted to save embedded strings to v0")
                             push16(len(arrow.string))
