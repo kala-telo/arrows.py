@@ -54,6 +54,27 @@ class ArrowType(IntEnum):
     TODO6                  = 40
     TODO7                  = 41
     TODO8                  = 42
+    TODO9                  = 43
+    TODO10                 = 44
+    TODO11                 = 45
+    TODO12                 = 46
+    TODO13                 = 47
+    TODO14                 = 48
+    TODO15                 = 49
+    TODO16                 = 50
+    TODO17                 = 51
+    TODO18                 = 52
+    TODO19                 = 53
+    TODO20                 = 54
+    TODO21                 = 55
+    TODO22                 = 56
+    TODO23                 = 57
+    TODO24                 = 58
+    TODO25                 = 59
+    TODO26                 = 60
+    TODO27                 = 61
+    TODO28                 = 62
+    TODO29                 = 63
 
 
 class Arrow:
@@ -134,12 +155,16 @@ class Map:
         chunks_count = pop16()
         for _ in range(chunks_count):
             chunk_x = pop16()
+            if chunk_x & 0x8000:
+                chunk_x &= 0x7FFF
+                chunk_x *= -1
             chunk_y = pop16()
+            if chunk_y & 0x8000:
+                chunk_y &= 0x7FFF
+                chunk_y *= -1
             arrow_types = pop8()+1
             for _ in range(arrow_types):
                 type = pop8()
-                # if self.version >= 5:
-                #     type %= 64
                 type_count = pop8()+1
                 for _ in range(type_count):
                     position = pop8()
@@ -174,17 +199,23 @@ class Map:
             raw_data.extend(val.to_bytes(byteorder='little', length=1))
         def push16(val: int):
             nonlocal raw_data
-            raw_data.extend(val.to_bytes(byteorder='little', length=2, signed=True))
+            raw_data.extend(val.to_bytes(byteorder='little', length=2))
 
         push16(len(self.chunks))
-        for cords, chunk in self.chunks.items():
+        for (chunk_x, chunk_y), chunk in self.chunks.items():
             types: list[ArrowType] = []
             for arrow in chunk.arrows:
                 if arrow.type != ArrowType.Empty and arrow.type not in types:
                     types.append(arrow.type)
             if types == []: continue
-            push16(cords[0])
-            push16(cords[1])
+            if chunk_x < 0:
+                chunk_x *= -1
+                chunk_x |= 0x8000
+            if chunk_y < 0:
+                chunk_y *= -1
+                chunk_y |= 0x8000
+            push16(chunk_x)
+            push16(chunk_y)
             push8(len(types)-1)
             for type in types:
                 push8(type)
@@ -195,7 +226,7 @@ class Map:
                     for y in range(16):
                         arrow = chunk.get(x, y)
                         if arrow.type != type: continue
-                        position = x | (y<<4)
+                        position = x | (y << 4)
                         rotation = (arrow.direction | (arrow.flipped << 2)) << (1 if self.version == 4 else 0)
                         if arrow.string != "":
                             rotation |= 0b1000 * (self.version != 4)
