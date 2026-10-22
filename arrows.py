@@ -3,11 +3,13 @@ import base64
 from typing import Self
 import zlib
 
+
 class Direction(IntEnum):
     North = 0
     East  = 1
     South = 2
     West  = 3
+
 
 class ArrowType(IntEnum):
     Empty                  = 0
@@ -77,17 +79,150 @@ class ArrowType(IntEnum):
     TODO29                 = 63
 
 
+class Color(IntEnum):
+    White  = 0
+    Red    = 1
+    Blue   = 2
+    Yellow = 3
+    Green  = 4
+    Orange = 5
+    Purple = 6
+    Black  = 7
+
+
+class Instrument(IntEnum):
+    Piano = 0
+    Organ = 1
+    SquareWave = 2
+    TriangleWave = 3
+    SawWave = 4
+    Guitar = 5
+    Harp = 6
+    Violin = 7
+    Cello = 8
+    Contrabass = 9
+    Bass = 10
+    Flute = 11
+    Oboe = 12
+    Clarinet = 13
+    Bassoon = 14
+    Trumpet = 15
+    Horn = 16
+    Trombone = 17
+    Tuba = 18
+    Xylophone = 19
+    Timpani = 20
+    Drums = 21
+
+
+class Note(IntEnum):
+    C      = 0
+    CSharp = 1
+    D      = 2
+    DSharp = 3
+    E      = 4
+    F      = 5
+    FSharp = 6
+    G      = 7
+    GSharp = 8
+    A      = 9
+    ASharp = 10
+    B      = 11
+
+
+class Letter(IntEnum):
+    Empty = 0
+    A     = 1
+    B     = 2
+    C     = 3
+    D     = 4
+    E     = 5
+    F     = 6
+    G     = 7
+    H     = 8
+    I     = 9
+    J     = 10
+    K     = 11
+    L     = 12
+    M     = 13
+    N     = 14
+    O     = 15
+    P     = 16
+    Q     = 17
+    R     = 18
+    S     = 19
+    T     = 20
+    U     = 21
+    V     = 22
+    W     = 23
+    X     = 24
+    Y     = 25
+    Z     = 26
+    Zero  = 27
+    One   = 28
+    Two   = 29
+    Three = 30
+    Four  = 31
+    Five  = 32
+    Six   = 33
+    Seven = 34
+    Eight = 35
+    Nine  = 36
+    F1    = 37
+    F2    = 38
+    F3    = 39
+    F4    = 40
+    F5    = 41
+    F6    = 42
+    F7    = 43
+    F8    = 44
+    F9    = 45
+    F10   = 46
+    F11   = 47
+    F12   = 48
+    Space = 49
+    Enter = 50
+    Tab   = 51
+    Shift = 52
+    Ctrl  = 53
+    Alt   = 54
+    Back  = 55
+    Up    = 56
+    Down  = 57
+    Left  = 58
+    Right = 59
+
+
 class Arrow:
-    def __init__(self, type: ArrowType = ArrowType.Empty, direction: Direction = Direction.North, flipped = False, string: str = ""):
+    def __init__(self, type: ArrowType = ArrowType.Empty, direction: Direction = Direction.North, flipped = False):
         self.type = type
         self.direction = direction
         self.flipped = flipped
-        self.string = string
+        self.string = ""
+        self.letter = Letter(0)
+        self.color = Color(0)
+        self.bright = False
+        self.instrument = Instrument(0)
+        self.octave = 0
+        self.note = Note(0)
+        self.letter = Letter(0)
 
     direction: Direction = Direction.North
     flipped: bool = False
     type: ArrowType = ArrowType.Empty
     string: str
+
+    # walls and bulbs
+    color: Color
+    bright: bool
+
+    # music
+    instrument: Instrument
+    octave: int
+    note: Note
+
+    # walls and keyboard buttons
+    letter: Letter
 
 
 class Chunk:
@@ -106,11 +241,12 @@ class Chunk:
 
 
 class Map:
-    version: int = 0
+    version: int
     chunks: dict[tuple[int, int], Chunk]
 
     def __init__(self, string: None|str = None):
         self.chunks = {}
+        self.version = 0
         if string is not None:
             self.import_(string)
 
@@ -144,7 +280,7 @@ class Map:
             nonlocal raw_data
             val = raw_data[:2]
             raw_data = raw_data[2:]
-            return int.from_bytes(val, byteorder='little', signed=True)
+            return int.from_bytes(val, byteorder='little')
 
         self.version = pop16()
         assert self.version in {0, 4, 5}
@@ -165,31 +301,43 @@ class Map:
             arrow_types = pop8()+1
             for _ in range(arrow_types):
                 type = pop8()
+                if type == ArrowType.Empty:
+                    continue
                 type_count = pop8()+1
                 for _ in range(type_count):
+                    arrow = Arrow()
+                    arrow.type = ArrowType(type)
                     position = pop8()
                     x = position & 0x0F
                     y = (position & 0xF0) >> 4
                     dnf = pop8()
-                    has_string = False
-                    strbuf = bytearray()
+                    has_data = False
                     if self.version == 4:
-                        has_string = dnf & 1 != 0
+                        has_data = dnf & 1 != 0
                         dnf >>= 1
                     elif self.version == 5:
-                        has_string = dnf & 0b1000
+                        has_data = dnf & 0b1000
                         dnf &= 0b0111
-                    if has_string:
-                        cnt = pop16()
-                        for _ in range(cnt):
-                            strbuf.append(pop8())
+                    if has_data:
+                        val = pop16()
+                        if dnf & 0x10 != 0:
+                            strbuf = bytearray()
+                            for _ in range(val):
+                                strbuf.append(pop8())
+                            arrow.string = strbuf.decode('utf-8')
+                        else:
+                            if arrow.type == ArrowType.Wall:
+                                arrow.letter = (val >> 4) & 0x3F
+                            if arrow.type == ArrowType.KeyboardButton:
+                                arrow.letter = val
+                            if arrow.type in {ArrowType.Wall, ArrowType.Display, ArrowType.DirectionalDisplay}:
+                                arrow.color = val & 0x0F
+                            if arrow.type == ArrowType.Display:
+                                arrow.bright = val & 0x10
                     flipped = dnf & 0b0100 != 0
                     direction = dnf & 0b0011
-                    arrow = Arrow()
                     arrow.flipped = flipped
-                    arrow.type = ArrowType(type)
                     arrow.direction = Direction(direction)
-                    arrow.string = strbuf.decode('utf-8')
                     self.set(chunk_x*16 + x, chunk_y*16 + y, arrow)
 
     def export(self) -> str:
@@ -228,20 +376,37 @@ class Map:
                         if arrow.type != type: continue
                         position = x | (y << 4)
                         rotation = (arrow.direction | (arrow.flipped << 2)) << (1 if self.version == 4 else 0)
-                        if arrow.string != "":
-                            rotation |= 0b1000 * (self.version != 4)
-                            if self.version < 4:
-                                raise ValueError("Attempted to save embedded strings to v0")
+                        push8(position)
+                        rotation_idx = len(raw_data)
+                        push8(rotation)
+                        has_data = False
+                        if arrow.string:
+                            has_data = True
+                            raw_data[-1] |= 0x10
                             push16(len(arrow.string))
                             for c in arrow.string.encode('utf-8'):
                                 push8(c)
                         else:
-                            push8(position)
-                            push8(rotation)
+                            val = 0
+                            if arrow.type  == ArrowType.Wall:
+                                val |= arrow.letter << 4
+                            if arrow.type == ArrowType.KeyboardButton:
+                                val |= arrow.letter
+                            if arrow.type in {ArrowType.Wall, ArrowType.Display, ArrowType.DirectionalDisplay}:
+                                val |= arrow.color
+                            if arrow.type == ArrowType.Display:
+                                val |= arrow.bright << 4
+                            if val != 0:
+                                push16(val)
+                                has_data = True
+                        if has_data:
+                            if self.version < 4:
+                                raise ValueError("Embedding data(color, letter, string) into an arrow is only possible after v4")
+                            raw_data[rotation_idx] |= 0x1 if self.version == 4 else 0x8
                         types_count += 1
                 raw_data[types_count_index] = types_count-1
-        if self.version == 4:
-            compressed = zlib.compress(raw_data)
+        if self.version >= 4:
+            compressed = zlib.compress(raw_data, 9)
             is_compressed = False
             if len(compressed) < len(raw_data):
                 raw_data = compressed
