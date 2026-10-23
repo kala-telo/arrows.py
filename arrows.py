@@ -37,7 +37,7 @@ class ArrowType(IntEnum):
     KeyboardButton         = 21
     LevelSource            = 22
     LevelTarget            = 23
-    DirectoinalButton      = 24
+    DirectionalButton      = 24
     Wall                   = 25
     Question               = 26
     Display                = 27
